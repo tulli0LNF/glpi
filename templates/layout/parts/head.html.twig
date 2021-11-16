@@ -49,8 +49,16 @@
    {% endfor %}
 
    {{ custom_css() }}
+   
+   {% if file_Exists(asset_path('/pics/custom/favicon.ico') %}
 
+   <link rel="shortcut icon" type="images/x-icon" href="{{ asset_path('/pics/custom/favicon.ico') }}" />
+   
+   {% else %}
+   
    <link rel="shortcut icon" type="images/x-icon" href="{{ asset_path('/pics/favicon.ico') }}" />
+   
+   {% endif %}
 
    {% for js_file in js_files %}
       <script type="text/javascript" src="{{ js_path(js_file) }}"></script>

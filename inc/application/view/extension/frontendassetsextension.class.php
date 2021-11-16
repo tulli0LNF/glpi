@@ -67,6 +67,22 @@ class FrontEndAssetsExtension extends AbstractExtension {
    }
 
    /**
+    * Return file_exists of a file.
+    *
+    * @param string $path
+    *
+    * @return 
+    */
+public function file_Exists(string $path): string {
+      $is_debug = isset($_SESSION['glpi_use_mode']) && $_SESSION['glpi_use_mode'] === Session::DEBUG_MODE;
+      $compiled_file = Html::getScssCompilePath($path);
+      if (!$is_debug && file_exists($compiled_file)) {
+          return file_exists( str_replace(GLPI_ROOT, '', $compiled_file));
+        }
+	}
+
+
+   /**
     * Return domain-relative path of a CSS file.
     *
     * @param string $path
