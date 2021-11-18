@@ -1156,6 +1156,7 @@ HTML;
          }
 
          if (in_array('kanban', $jslibs)) {
+            $tpl_vars['js_modules'][] = 'js/modules/Kanban/Kanban.js';
             Html::requireJs('kanban');
          }
 
@@ -2433,8 +2434,6 @@ HTML;
          // Create Modal window on top
          if ($p['ontop']
              || (isset($p['forcecreate']) && $p['forcecreate'])) {
-                $out .= "<div id='massiveactioncontent$identifier'></div>";
-
             if (!empty($p['tag_to_send'])) {
                $js_modal_fields  = "var items = $('";
                if (!empty($p['container'])) {
@@ -2455,7 +2454,6 @@ HTML;
                $url,
                [
                   'title'           => $p['title'],
-                  'container'       => 'massiveactioncontent'.$identifier,
                   'extraparams'     => $p['extraparams'],
                   'width'           => $p['width'],
                   'height'          => $p['height'],
@@ -6012,7 +6010,6 @@ JAVASCRIPT;
             $_SESSION['glpi_js_toload'][$name][] = 'js/gantt-helper.js';
             break;
          case 'kanban':
-            $_SESSION['glpi_js_toload'][$name][] = 'js/kanban.js';
             $_SESSION['glpi_js_toload'][$name][] = 'lib/jqueryplugins/jquery.ui.touch-punch.js';
             break;
          case 'rateit':
