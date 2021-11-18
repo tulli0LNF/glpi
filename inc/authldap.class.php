@@ -2554,6 +2554,7 @@ class AuthLDAP extends CommonDBTM {
                   // Force date sync
                   $user->fields["date_sync"] = $_SESSION["glpi_currenttime"];
                   $user->fields['is_deleted_ldap'] = 0;
+                  $user->fields['is_active'] = 1; //active user if found on LDAP
 
                   //Save information in database !
                   $input = $user->fields;
