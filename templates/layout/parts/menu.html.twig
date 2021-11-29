@@ -44,7 +44,7 @@
       <a class="nav-link dropdown-toggle {{ firstlevel_active ? 'active' : '' }} {{ firstlevel_shown ? 'show' : '' }}"
          data-bs-toggle="dropdown" role="button"
          aria-expanded="{{ firstlevel_shown ? 'true' : 'false' }}">
-         <i class="fa-fw {{ firstlevel['icon'] ?? '' }} me-1"></i>
+         <i class="fa-fw {{ firstlevel['icon'] ?? '' }}"></i>
          <span class="menu-label">{{ firstlevel['title'] }}</span>
       </a>
       <div class="dropdown-menu {{ firstlevel_active and is_vertical != false ? '' : 'animate__animated' }} {{ is_vertical ? 'animate__fadeInLeft' : 'animate__zoomIn' }} {{ firstlevel_shown ? 'show' : '' }}">
@@ -55,7 +55,7 @@
             {% if has_dashboard %}
                <a class="dropdown-item"
                   href="{{ path(firstlevel['default_dashboard']) }}">
-                  <i class="fas fa-fw fa-border-all"></i>
+                  <i class="ti ti-dashboard"></i>
                   {{ __('Dashboard') }}
                </a>
             {% endif %}
@@ -65,7 +65,9 @@
                   href="{{ path(sublevel['page']) }}"
                   accesskey="{{ sublevel['shortcut'] ?? '' }}" title="{{ sublevel['title'] }}">
                   <i class="fa-fw {{ sublevel['icon'] ?? '' }}"></i>
-                  {{ sublevel['title']|shortcut(sublevel['shortcut'] ?? '') }}
+                  <span class='text-wrap'>
+                     {{ sublevel['title']|shortcut(sublevel['shortcut'] ?? '') }}
+                  </span>
                </a>
                {% endif %}
 

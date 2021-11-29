@@ -724,21 +724,15 @@ var initMap = function(parent_elt, map_id, height, initial_view = {position: [43
    height = (typeof height !== 'undefined') ? height : '200px';
 
    if (height == 'full') {
-      //full height map
-      var wheight = $(window).height();
-      var _oSize = 0;
-
-      $('#footer, .search_page').each(function(){
-         _oSize += _eltRealSize($(this));
-      });
-      _oSize += parseFloat($('#page').css('padding-top').replace('px', ''));
-      _oSize += parseFloat($('#page').css('padding-bottom').replace('px', ''));
-      _oSize += parseFloat($('#page').css('margin-top').replace('px', ''));
-      _oSize += parseFloat($('#page').css('margin-bottom').replace('px', ''));
-
-      var newHeight = Math.floor(wheight - _oSize);
+      var viewport_height = $(window).height();
+      var map_position    = $(parent_elt).offset()['top'] + $(parent_elt).outerHeight();
+      var newHeight = Math.floor(
+         viewport_height
+         - map_position
+         - 2 // small margin to display the border at the bottom
+      );
       var minHeight = 300;
-      if ( newHeight < minHeight ) {
+      if (newHeight < minHeight) {
          newHeight = minHeight;
       }
       height = newHeight + 'px';
@@ -918,7 +912,7 @@ var templateItilStatus = function(option) {
          classes = 'assigned far fa-circle';
          break;
       case 3 :
-         classes = 'planned fas fa-calendar';
+         classes = 'planned far fa-calendar';
          break;
       case 4 :
          classes = 'waiting fas fa-circle';
@@ -964,7 +958,7 @@ var templateValidation = function(option) {
    var classes = "";
    switch (parseInt(status)) {
       case 2 : // WAITING
-         classes = 'waiting fas fa-clock';
+         classes = 'waiting far fa-clock';
          break;
       case 3 : // ACCEPTED
          classes = 'accepted fas fa-check';
@@ -1371,4 +1365,19 @@ function flashIconButton(button, button_classes, icon_classes, duration) {
       btn.addClass(original_btn_classes);
       ico.addClass(original_ico_classes);
    }, duration);
+}
+
+/**
+ * uniqid() function, providing similar result as PHP does.
+ *
+ * @param {string} prefix
+ * @param {boolean} random
+ * @returns {string}
+ *
+ * @see https://stackoverflow.com/a/48593447
+ */
+function uniqid(prefix = "", more_entropy = false) {
+   const sec = Date.now() * 1000 + Math.random() * 1000;
+   const id = sec.toString(16).replace(/\./g, "").padEnd(14, "0");
+   return `${prefix}${id}${more_entropy ? `.${Math.trunc(Math.random() * 100000000)}`:""}`;
 }

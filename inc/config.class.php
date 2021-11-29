@@ -1297,9 +1297,7 @@ class Config extends CommonDBTM {
       echo "</td>";
       echo "<td><label for='dropdown_timezone$rand'>" . __('Timezone') . "</label></td>";
       echo "<td>";
-      $tz_warning = '';
-      $tz_available = $DB->areTimezonesAvailable($tz_warning);
-      if ($tz_available) {
+      if ($DB->use_timezones) {
          $timezones = $DB->getTimezones();
          Dropdown::showFromArray(
             'timezone',
@@ -1310,8 +1308,9 @@ class Config extends CommonDBTM {
             ]
          );
       } else {
-         echo "<img src=\"{$CFG_GLPI['root_doc']}/pics/warning_min.png\">";
-         echo $tz_warning;
+         echo __('Timezone usage has not been activated.')
+            . ' '
+            . sprintf(__('Run the "php bin/console %1$s" command to activate it.'), 'glpi:database:enable_timezones');
       }
 
       echo "<tr class='tab_bg_2'><td><label for='dropdown_default_central_tab$rand'>".__('Default central tab')."</label></td>";
@@ -1965,7 +1964,7 @@ HTML;
       echo wordwrap($msg."\n", $width, "\n\t");
 
       if (isset($_SERVER["HTTP_USER_AGENT"])) {
-         echo "\t" . Sanitizer::sanitize($_SERVER["HTTP_USER_AGENT"]) . "\n";
+         echo "\t" . Sanitizer::sanitize($_SERVER["HTTP_USER_AGENT"], false) . "\n";
       }
 
       foreach ($DB->getInfo() as $key => $val) {
@@ -3455,7 +3454,7 @@ HTML;
 
 
    static function getIcon() {
-      return "fas fa-cog";
+      return "ti ti-adjustments";
    }
 
    /**

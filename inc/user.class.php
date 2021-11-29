@@ -608,7 +608,7 @@ class User extends CommonDBTM {
             if ($input["password"] == $input["password2"]) {
                if (Config::validatePassword($input["password"])) {
                   $input["password"]
-                     = Auth::getPasswordHash(Sanitizer::unsanitize(stripslashes($input["password"])));
+                     = Auth::getPasswordHash(Sanitizer::unsanitize($input["password"]));
 
                   $input['password_last_update'] = $_SESSION['glpi_currenttime'];
                } else {
@@ -804,7 +804,7 @@ class User extends CommonDBTM {
                                -strtotime($this->fields['password_forget_token_date'])) < DAY_TIMESTAMP)
                            && $this->isEmail($input['email'])))) {
                   $input["password"]
-                     = Auth::getPasswordHash(Sanitizer::unsanitize($input["password"], true));
+                     = Auth::getPasswordHash(Sanitizer::unsanitize($input["password"]));
 
                   $input['password_last_update'] = $_SESSION["glpi_currenttime"];
                } else {
@@ -2247,12 +2247,10 @@ JAVASCRIPT;
          echo "<tr class='tab_bg_1'><td></td><td></td></tr>";
       }
 
-      $tz_warning = '';
-      $tz_available = $DB->areTimezonesAvailable($tz_warning);
-      if ($tz_available || Session::haveRight("config", READ)) {
+      if ($DB->use_timezones || Session::haveRight("config", READ)) {
          echo "<tr class='tab_bg_1'>";
          echo "<td><label for='timezone'>".__('Time zone')."</label></td><td>";
-         if ($tz_available) {
+         if ($DB->use_timezones) {
             $timezones = $DB->getTimezones();
             Dropdown::showFromArray(
                'timezone',
@@ -2264,8 +2262,9 @@ JAVASCRIPT;
             );
          } else if (Session::haveRight("config", READ)) {
             // Display a warning but only if user is more or less an admin
-            echo "<img src=\"{$CFG_GLPI['root_doc']}/pics/warning_min.png\">";
-            echo $tz_warning;
+            echo __('Timezone usage has not been activated.')
+               . ' '
+               . sprintf(__('Run the "php bin/console %1$s" command to activate it.'), 'glpi:database:enable_timezones');
          }
          echo "</td></tr>";
       }
@@ -2704,12 +2703,10 @@ JAVASCRIPT;
             echo "<tr class='tab_bg_1'><td colspan='2'></td></tr>";
          }
 
-         $tz_warning = '';
-         $tz_available = $DB->areTimezonesAvailable($tz_warning);
-         if ($tz_available || Session::haveRight("config", READ)) {
+         if ($DB->use_timezones || Session::haveRight("config", READ)) {
             echo "<tr class='tab_bg_1'>";
             echo "<td><label for='timezone'>".__('Time zone')."</label></td><td>";
-            if ($tz_available) {
+            if ($DB->use_timezones) {
                $timezones = $DB->getTimezones();
                Dropdown::showFromArray(
                   'timezone',
@@ -2721,8 +2718,9 @@ JAVASCRIPT;
                );
             } else if (Session::haveRight("config", READ)) {
                // Display a warning but only if user is more or less an admin
-               echo "<img src=\"{$CFG_GLPI['root_doc']}/pics/warning_min.png\">";
-               echo $tz_warning;
+               echo __('Timezone usage has not been activated.')
+                  . ' '
+                  . sprintf(__('Run the "php bin/console %1$s" command to activate it.'), 'glpi:database:enable_timezones');
             }
             echo "</td>";
             if ($extauth
@@ -3799,6 +3797,7 @@ JAVASCRIPT;
                            'glpi_profilerights.rights'   => ['&', KnowbaseItem::READFAQ]
                         ] + getEntitiesRestrictCriteria('glpi_profiles_users', '', $entity_restrict, 1)
                      ];
+                     break;
 
                   default :
                      // Check read or active for rights
@@ -5658,7 +5657,7 @@ JAVASCRIPT;
    }
 
    static function getIcon() {
-      return "fas fa-user";
+      return "ti ti-user";
    }
 
    /**
@@ -5897,7 +5896,7 @@ JAVASCRIPT;
       }
 
       $initials = mb_substr($this->fields['firstname'] ?? '', 0, 1) . mb_substr($this->fields['realname'] ?? '', 0, 1);
-      if (empty(!$initials)) {
+      if (empty($initials)) {
          $initials = mb_substr($this->fields['name'] ?? '', 0, 2);
       }
       return mb_strtoupper($initials);

@@ -43,17 +43,7 @@ function uploadFile(file, editor) {
       fileupload_container = $(editor.getElement()).closest('form').find('.fileupload');
    }
 
-   fileupload_container.find('[type="file"]')
-      .fileupload('send', {files: [file]})
-      .error(function (request) {
-         // If this is an error on the return
-         if ("responseText" in request && request.responseText.length > 0) {
-            alert(request.responseText);
-         } else {
-            // Error before sending request #3866
-            alert(request.statusText);
-         }
-      });
+   fileupload_container.find('[type="file"]').fileupload('add', {files: [file]});
 }
 
 var handleUploadedFile = function (files, files_data, input_name, container, editor_id) {
@@ -152,7 +142,7 @@ var displayUploadedFile = function(file, tag, editor, input_name, filecontainer)
 
    // Delete button
    var elementsIdToRemove = {0:file.id, 1:file.id+'2'};
-   $('<span class="fa fa-times-circle pointer"></span>').click(function() {
+   $('<span class="ti ti-circle-x pointer"></span>').click(function() {
       deleteImagePasted(elementsIdToRemove, tag.tag, editor);
    }).appendTo(p);
 

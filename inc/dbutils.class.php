@@ -1544,9 +1544,10 @@ final class DbUtils {
 
       $base_name = $objectName;
 
-      $is_sanitized = Sanitizer::isSanitized($objectName);
-      if ($is_sanitized) {
-         $objectName = Sanitizer::unsanitize($objectName);
+      $objectName = Sanitizer::unsanitize($objectName);
+      $was_sanitized = $objectName !== $base_name;
+      if ($was_sanitized) {
+         Toolbox::deprecated('Handling of encoded/escaped value in autoName() is deprecated.');
       }
 
       $matches = [];
@@ -1680,8 +1681,8 @@ final class DbUtils {
          $autoNum
       );
 
-      if ($is_sanitized) {
-         $objectName = Sanitizer::sanitize($objectName);
+      if ($was_sanitized) {
+         $objectName = Sanitizer::sanitize($objectName, false);
       }
 
       return $objectName;

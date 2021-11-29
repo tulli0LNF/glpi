@@ -38,8 +38,11 @@ if (!defined('GLPI_ROOT')) {
 
 use Config;
 use DBConnection;
+use DBmysql;
 use Glpi\Console\AbstractCommand;
 use Glpi\Console\Command\ForceNoPluginsOptionCommandInterface;
+use Glpi\System\Requirement\DbTimezones;
+use mysqli;
 use Symfony\Component\Console\Exception\InvalidArgumentException;
 use Symfony\Component\Console\Helper\Table;
 use Symfony\Component\Console\Input\InputInterface;
@@ -183,13 +186,23 @@ abstract class AbstractConfigureCommand extends AbstractCommand implements Force
     *
     * @param InputInterface $input
     * @param OutputInterface $output
+    * @param bool $auto_config_flags
     * @param bool $use_utf8mb4
+    * @param bool $allow_myisam
+    * @param bool $allow_datetime
     *
     * @throws InvalidArgumentException
     *
     * @return string
     */
-   protected function configureDatabase(InputInterface $input, OutputInterface $output, bool $use_utf8mb4) {
+   protected function configureDatabase(
+      InputInterface $input,
+      OutputInterface $output,
+      bool $auto_config_flags = true,
+      bool $use_utf8mb4 = false,
+      bool $allow_myisam = true,
+      bool $allow_datetime = true
+   ) {
 
       $db_pass     = $input->getOption('db-password');
       $db_host     = $input->getOption('db-host');
@@ -226,7 +239,7 @@ abstract class AbstractConfigureCommand extends AbstractCommand implements Force
          return self::ABORTED_BY_USER;
       }
 
-      $mysqli = new \mysqli();
+      $mysqli = new mysqli();
       if (intval($db_port) > 0) {
          // Network port
          @$mysqli->connect($db_host, $db_user, $db_pass, null, $db_port);
@@ -245,8 +258,6 @@ abstract class AbstractConfigureCommand extends AbstractCommand implements Force
          return self::ERROR_DB_CONNECTION_FAILED;
       }
 
-      DBConnection::setConnectionCharset($mysqli, $use_utf8mb4);
-
       ob_start();
       $db_version_data = $mysqli->query('SELECT version()')->fetch_array();
       $checkdb = Config::displayCheckDbEngine(false, $db_version_data[0]);
@@ -256,13 +267,46 @@ abstract class AbstractConfigureCommand extends AbstractCommand implements Force
          return self::ERROR_DB_ENGINE_UNSUPPORTED;
       }
 
+      if ($auto_config_flags) {
+         // Instanciate DB to be able to compute boolean properties flags.
+         $db = new class($db_hostport, $db_user, $db_pass, $db_name) extends DBmysql {
+            public function __construct($dbhost, $dbuser, $dbpassword, $dbdefault) {
+               $this->dbhost     = $dbhost;
+               $this->dbuser     = $dbuser;
+               $this->dbpassword = $dbpassword;
+               $this->dbdefault  = $dbdefault;
+               parent::__construct();
+            }
+         };
+         $config_flags = $db->getComputedConfigBooleanFlags();
+         $use_utf8mb4 = $config_flags[DBConnection::PROPERTY_USE_UTF8MB4] ?? $use_utf8mb4;
+         $allow_myisam = $config_flags[DBConnection::PROPERTY_ALLOW_MYISAM] ?? $allow_myisam;
+         $allow_datetime = $config_flags[DBConnection::PROPERTY_ALLOW_DATETIME] ?? $allow_datetime;
+      }
+
+      DBConnection::setConnectionCharset($mysqli, $use_utf8mb4);
+
+      $are_timezones_available = $this->checkTimezonesAvailability($mysqli);
+      $use_timezones = !$allow_datetime && $are_timezones_available;
+
       $db_name = $mysqli->real_escape_string($db_name);
 
       $output->writeln(
          '<comment>' . __('Saving configuration file...') . '</comment>',
          OutputInterface::VERBOSITY_VERBOSE
       );
-      if (!DBConnection::createMainConfig($db_hostport, $db_user, $db_pass, $db_name, $use_utf8mb4, $log_deprecation_warnings)) {
+      $result = DBConnection::createMainConfig(
+         $db_hostport,
+         $db_user,
+         $db_pass,
+         $db_name,
+         $use_timezones,
+         $log_deprecation_warnings,
+         $use_utf8mb4,
+         $allow_myisam,
+         $allow_datetime
+      );
+      if (!$result) {
          $message = sprintf(
             __('Cannot write configuration file "%s".'),
             GLPI_CONFIG_DIR . DIRECTORY_SEPARATOR . 'config_db.php'
@@ -273,6 +317,47 @@ abstract class AbstractConfigureCommand extends AbstractCommand implements Force
          );
          return self::ERROR_DB_CONFIG_FILE_NOT_SAVED;
       }
+
+      // Set $db instance to use new connection properties
+      $this->db = new class(
+         $db_hostport,
+         $db_user,
+         $db_pass,
+         $db_name,
+         $use_timezones,
+         $log_deprecation_warnings,
+         $use_utf8mb4,
+         $allow_myisam,
+         $allow_datetime
+      ) extends DBmysql {
+         public function __construct(
+            $dbhost,
+            $dbuser,
+            $dbpassword,
+            $dbdefault,
+            $use_timezones,
+            $log_deprecation_warnings,
+            $use_utf8mb4,
+            $allow_myisam,
+            $allow_datetime
+         ) {
+            $this->dbhost     = $dbhost;
+            $this->dbuser     = $dbuser;
+            $this->dbpassword = $dbpassword;
+            $this->dbdefault  = $dbdefault;
+
+            $this->use_timezones  = $use_timezones;
+            $this->use_utf8mb4    = $use_utf8mb4;
+            $this->allow_myisam   = $allow_myisam;
+            $this->allow_datetime = $allow_datetime;
+
+            $this->log_deprecation_warnings = $log_deprecation_warnings;
+
+            $this->clearSchemaCache();
+
+            parent::__construct();
+         }
+      };
 
       return self::SUCCESS;
    }
@@ -361,5 +446,56 @@ abstract class AbstractConfigureCommand extends AbstractCommand implements Force
          $output,
          new ConfirmationQuestion(__('Do you want to continue?') . ' [Yes/no]', true)
       );
+   }
+
+   /**
+    * Check timezones availability and return availability state.
+    *
+    * @param mysqli $mysqli
+    *
+    * @return bool
+    */
+   private function checkTimezonesAvailability(mysqli $mysqli): bool {
+
+      $db = new class($mysqli) extends DBmysql {
+         public function __construct($dbh) {
+            $this->dbh = $dbh;
+         }
+      };
+      $timezones_requirement = new DbTimezones($db);
+
+      if (!$timezones_requirement->isValidated()) {
+         $message = __('Timezones usage cannot be activated due to following errors:');
+         foreach ($timezones_requirement->getValidationMessages() as $validation_message) {
+            $message .= "\n - " . $validation_message;
+         }
+         $this->output->writeln(
+            '<comment>' . $message . '</comment>',
+            OutputInterface::VERBOSITY_QUIET
+         );
+         if ($this->input->getOption('no-interaction')) {
+            $message = sprintf(
+               __('Fix them and run the "php bin/console %1$s" command to enable timezones.'),
+               'glpi:database:enable_timezones'
+            );
+            $this->output->writeln('<comment>' . $message . '</comment>', OutputInterface::VERBOSITY_QUIET);
+         } else {
+            /** @var \Symfony\Component\Console\Helper\QuestionHelper $question_helper */
+            $question_helper = $this->getHelper('question');
+            $continue = $question_helper->ask(
+               $this->input,
+               $this->output,
+               new ConfirmationQuestion(__('Do you want to continue?') . ' [Yes/no]', true)
+            );
+            if (!$continue) {
+               throw new \Glpi\Console\Exception\EarlyExitException(
+                  '<comment>' . __('Configuration aborted.') . '</comment>',
+                  self::ABORTED_BY_USER
+               );
+            }
+         }
+      }
+
+      return $timezones_requirement->isValidated();
    }
 }

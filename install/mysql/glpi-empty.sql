@@ -434,6 +434,7 @@ CREATE TABLE `glpi_cartridgeitems` (
   `is_deleted` tinyint NOT NULL DEFAULT '0',
   `comment` text,
   `alarm_threshold` int NOT NULL DEFAULT '10',
+  `stock_target` int NOT NULL DEFAULT '0',
   `date_mod` timestamp NULL DEFAULT NULL,
   `date_creation` timestamp NULL DEFAULT NULL,
   `pictures` text,
@@ -1299,6 +1300,7 @@ CREATE TABLE `glpi_consumableitems` (
   `is_deleted` tinyint NOT NULL DEFAULT '0',
   `comment` text,
   `alarm_threshold` int NOT NULL DEFAULT '10',
+  `stock_target` int NOT NULL DEFAULT '0',
   `date_mod` timestamp NULL DEFAULT NULL,
   `date_creation` timestamp NULL DEFAULT NULL,
   `otherserial` varchar(255) DEFAULT NULL,
@@ -1369,6 +1371,7 @@ CREATE TABLE `glpi_contacts` (
   `is_recursive` tinyint NOT NULL DEFAULT '0',
   `name` varchar(255) DEFAULT NULL,
   `firstname` varchar(255) DEFAULT NULL,
+  `registration_number` varchar(255) DEFAULT NULL,
   `phone` varchar(255) DEFAULT NULL,
   `phone2` varchar(255) DEFAULT NULL,
   `mobile` varchar(255) DEFAULT NULL,
@@ -1947,8 +1950,8 @@ CREATE TABLE `glpi_devicecameras` (
   `date_mod` timestamp NULL DEFAULT NULL,
   `date_creation` timestamp NULL DEFAULT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `unicity` (`manufacturers_id`,`devicecameramodels_id`),
   KEY `designation` (`designation`),
+  KEY `manufacturers_id` (`manufacturers_id`),
   KEY `devicecameramodels_id` (`devicecameramodels_id`),
   KEY `entities_id` (`entities_id`),
   KEY `is_recursive` (`is_recursive`),
@@ -2758,6 +2761,7 @@ CREATE TABLE `glpi_entities` (
   `longitude` varchar(255) DEFAULT NULL,
   `altitude` varchar(255) DEFAULT NULL,
   `transfers_id` int NOT NULL DEFAULT '-2',
+  `agent_base_url` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `unicity` (`entities_id`,`name`),
   KEY `name` (`name`),
@@ -4515,6 +4519,7 @@ CREATE TABLE `glpi_networknames` (
   `name` varchar(255) DEFAULT NULL,
   `comment` text,
   `fqdns_id` int NOT NULL DEFAULT '0',
+  `ipnetworks_id` int NOT NULL DEFAULT '0',
   `is_deleted` tinyint NOT NULL DEFAULT '0',
   `is_dynamic` tinyint NOT NULL DEFAULT '0',
   `date_mod` timestamp NULL DEFAULT NULL,
@@ -4527,7 +4532,8 @@ CREATE TABLE `glpi_networknames` (
   KEY `is_dynamic` (`is_dynamic`),
   KEY `item` (`itemtype`,`items_id`,`is_deleted`),
   KEY `date_mod` (`date_mod`),
-  KEY `date_creation` (`date_creation`)
+  KEY `date_creation` (`date_creation`),
+  KEY `ipnetworks_id` (`ipnetworks_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=DYNAMIC;
 
 
@@ -6836,6 +6842,7 @@ CREATE TABLE `glpi_suppliers` (
   `is_recursive` tinyint NOT NULL DEFAULT '0',
   `name` varchar(255) DEFAULT NULL,
   `suppliertypes_id` int NOT NULL DEFAULT '0',
+  `registration_number` varchar(255) DEFAULT NULL,
   `address` text,
   `postcode` varchar(255) DEFAULT NULL,
   `town` varchar(255) DEFAULT NULL,

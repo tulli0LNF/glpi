@@ -508,7 +508,7 @@ class Toolbox extends DbTestCase {
 
       // Processed data is expected to be escaped
       $content_text = \Toolbox::addslashes_deep($content_text);
-      $expected_result = Sanitizer::sanitize($expected_result);
+      $expected_result = Sanitizer::sanitize($expected_result, false);
 
       $this->string(
          \Toolbox::convertTagToImage($content_text, $item, [$doc_id => ['tag' => $img_tag]])
@@ -564,7 +564,7 @@ class Toolbox extends DbTestCase {
 
       // Processed data is expected to be escaped
       $content_text = \Toolbox::addslashes_deep($content_text);
-      $expected_result = Sanitizer::sanitize($expected_result);
+      $expected_result = Sanitizer::sanitize($expected_result, false);
 
       // Save old config
       global $CFG_GLPI;
@@ -637,7 +637,7 @@ class Toolbox extends DbTestCase {
 
       // Processed data is expected to be escaped
       $content_text = \Toolbox::addslashes_deep($content_text);
-      $expected_result = Sanitizer::sanitize($expected_result);
+      $expected_result = Sanitizer::sanitize($expected_result, false);
 
       $this->string(
          \Toolbox::convertTagToImage($content_text, $item, $doc_data)
@@ -681,8 +681,8 @@ class Toolbox extends DbTestCase {
 
       // Processed data is expected to be escaped
       $content_text = \Toolbox::addslashes_deep($content_text);
-      $expected_result_1 = Sanitizer::sanitize($expected_result_1);
-      $expected_result_2 = Sanitizer::sanitize($expected_result_2);
+      $expected_result_1 = Sanitizer::sanitize($expected_result_1, false);
+      $expected_result_2 = Sanitizer::sanitize($expected_result_2, false);
 
       $this->string(
          \Toolbox::convertTagToImage($content_text, $item, [$doc_id_1 => ['tag' => $img_tag]])
@@ -721,7 +721,7 @@ class Toolbox extends DbTestCase {
 
       // Processed data is expected to be escaped
       $content_text = \Toolbox::addslashes_deep($content_text);
-      $expected_result = Sanitizer::sanitize($expected_result);
+      $expected_result = Sanitizer::sanitize($expected_result, false);
 
       $this->string(
          \Toolbox::convertTagToImage($content_text, $item, [$doc_id => ['tag' => $img_tag]])
@@ -783,7 +783,7 @@ class Toolbox extends DbTestCase {
          ], [
             'bg_color' => "#FFFFFF",
             'offset'   => 50,
-            'fg_color' => '#7f7f7f',
+            'fg_color' => '#808080',
          ], [
             'bg_color' => "#000000",
             'offset'   => 40,
@@ -791,7 +791,7 @@ class Toolbox extends DbTestCase {
          ], [
             'bg_color' => "#000000",
             'offset'   => 50,
-            'fg_color' => '#7f7f7f',
+            'fg_color' => '#808080',
          ],
       ];
    }

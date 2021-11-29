@@ -1234,8 +1234,6 @@ HTML;
       // load log filters everywhere
       Html::requireJs('log_filters');
 
-      $tpl_vars['css_files'][] = 'css/legacy/jquery-glpi.scss';
-
       if (isset($_SESSION['glpihighcontrast_css']) && $_SESSION['glpihighcontrast_css']) {
          $tpl_vars['high_contrast'] = true;
       }
@@ -1291,7 +1289,7 @@ HTML;
                'Rack', 'Enclosure', 'PDU', 'PassiveDCEquipment', 'Unmanaged', 'Cable'
             ], $CFG_GLPI['devices_in_menu']),
             'default_dashboard' => '/front/dashboard_assets.php',
-            'icon'    => 'fas fa-boxes'
+            'icon'    => 'ti ti-package'
          ],
          'helpdesk' => [
             'title' => __('Assistance'),
@@ -1300,7 +1298,7 @@ HTML;
                'Planning', 'Stat', 'TicketRecurrent', 'RecurrentChange'
             ],
             'default_dashboard' => '/front/dashboard_helpdesk.php',
-            'icon'    => 'fas fa-headset'
+            'icon'    => 'ti ti-headset'
          ],
          'management' => [
             'title' => __('Management'),
@@ -1309,7 +1307,7 @@ HTML;
                'Document', 'Line', 'Certificate', 'Datacenter', 'Cluster', 'Domain',
                'Appliance', 'Database'
             ],
-            'icon'  => 'fas fa-wallet'
+            'icon'  => 'ti ti-wallet'
          ],
          'tools' => [
             'title' => __('Tools'),
@@ -1318,12 +1316,12 @@ HTML;
                'ReservationItem', 'Report', 'MigrationCleaner',
                'SavedSearch', 'Impact'
             ],
-            'icon' => 'fas fa-briefcase'
+            'icon' => 'ti ti-briefcase'
          ],
          'plugins' => [
             'title' => _n('Plugin', 'Plugins', Session::getPluralNumber()),
             'types' => [],
-            'icon'  => 'fas fa-puzzle-piece'
+            'icon'  => 'ti ti-puzzle'
          ],
          'admin' => [
             'title' => __('Administration'),
@@ -1331,7 +1329,7 @@ HTML;
                'User', 'Group', 'Entity', 'Rule',
                'Profile', 'QueuedNotification', 'Glpi\\Event', 'Glpi\Inventory\Inventory'
             ],
-            'icon'  => 'fas fa-user-shield'
+            'icon'  => 'ti ti-shield-check'
          ],
          'config' => [
             'title' => __('Setup'),
@@ -1340,7 +1338,7 @@ HTML;
                'SLM', 'Config', 'FieldUnicity', 'CronTask', 'Auth',
                'MailCollector', 'Link', 'Plugin'
             ],
-            'icon'  => 'fas fa-cogs'
+            'icon'  => 'ti ti-settings'
          ],
 
          // special items
@@ -1745,7 +1743,7 @@ HTML;
          $menu['create_ticket'] = [
             'default' => '/front/helpdesk.public.php?create_ticket=1',
             'title'   => __('Create a ticket'),
-            'icon'    => 'fas fa-plus',
+            'icon'    => 'ti ti-plus',
          ];
       }
 
@@ -1881,12 +1879,7 @@ HTML;
 
       self::includeHeader($title);
 
-      // Body with configured stuff
-      echo "<body>";
-      echo "<main role='main' id='page'>";
-      echo "<br><br>";
-      echo "<div id='bloc'>";
-      echo "<div id='logo_bloc'></div>";
+      TemplateRenderer::getInstance()->display('layout/parts/page_header_empty.html.twig');
    }
 
 
@@ -2473,7 +2466,7 @@ HTML;
          }
          $out .= " href='#modal_massaction_content$identifier' title=\"".htmlentities($p['title'], ENT_QUOTES, 'UTF-8')."\">";
          if ($p['display_arrow']) {
-            $out .= "<i class='fas fa-level-".($p['ontop']?'down':'up')."-alt fa-flip-horizontal mt-2' style='margin-left: -2px;'></i>";
+            $out .= "<i class='ti ti-corner-left-".($p['ontop']?'down':'up')." mt-1' style='margin-left: -2px;'></i>";
          }
          $out .= "<span>".$p['title']."</span>";
          $out .= "</a>";
@@ -3844,7 +3837,7 @@ JAVASCRIPT
          echo "<tr><th>KEY</th><th>=></th><th>VALUE</th></tr>";
 
          foreach ($tab as $key => $val) {
-            $key = Sanitizer::sanitize($key);
+            $key = Sanitizer::sanitize($key, false);
             echo "<tr><td>";
             echo $key;
             $is_array = is_array($val);
@@ -5340,6 +5333,7 @@ JAVASCRIPT;
          'name'          => $p['name'],
          'display'       => false,
          'uploads'       => $p['uploads'],
+         'editor_id'     => $p['editor_id'],
       ]);
 
       $max_file_size  = $CFG_GLPI['document_max_size'] * 1024 * 1024;
@@ -5349,10 +5343,10 @@ JAVASCRIPT;
          // manage file upload without tinymce editor
          $display .= "<span class='b'>".__('Drag and drop your file here, or').'</span><br>';
       }
-      $display .= "<input id='fileupload{$p['rand']}' type='file' name='".$p['name']."[]'
+      $display .= "<input id='fileupload{$p['rand']}' type='file' name='_uploader_".$p['name']."[]'
                       class='form-control'
                       data-url='".$CFG_GLPI["root_doc"]."/ajax/fileupload.php'
-                      data-form-data='{\"name\": \"".$p['name']."\", \"showfilesize\": \"".$p['showfilesize']."\"}'"
+                      data-form-data='{\"name\": \"_uploader_".$p['name']."\", \"showfilesize\": \"".$p['showfilesize']."\"}'"
                       .($p['multiple']?" multiple='multiple'":"")
                       .($p['onlyimages']?" accept='.gif,.png,.jpg,.jpeg'":"").">";
 
@@ -5388,14 +5382,28 @@ JAVASCRIPT;
                                  : DocumentType::getUploadableFilePattern()).",
             maxFileSize: {$max_file_size},
             maxChunkSize: {$max_chunk_size},
+            add: function (e, data) {
+               // randomize filename
+               for (var i = 0; i < data.files.length; i++) {
+                  data.files[i].uploadName = uniqid('', true) + data.files[i].name;
+               }
+               // call default handler
+               $.blueimp.fileupload.prototype.options.add.call(this, e, data);
+            },
             done: function (event, data) {
                handleUploadedFile(
                   data.files, // files as blob
-                  data.result.{$p['name']}, // response from '/ajax/fileupload.php'
+                  data.result._uploader_{$p['name']}, // response from '/ajax/fileupload.php'
                   '{$p['name']}',
                   $('#{$p['filecontainer']}'),
                   '{$p['editor_id']}'
                );
+            },
+            fail: function (e, data) {
+               const err = 'responseText' in data.jqXHR && data.jqXHR.responseText.length > 0
+                  ? data.jqXHR.responseText
+                  : data.jqXHR.statusText;
+               alert(err);
             },
             processfail: function (e, data) {
                $.each(
@@ -6010,7 +6018,6 @@ JAVASCRIPT;
             $_SESSION['glpi_js_toload'][$name][] = 'js/gantt-helper.js';
             break;
          case 'kanban':
-            $_SESSION['glpi_js_toload'][$name][] = 'lib/jqueryplugins/jquery.ui.touch-punch.js';
             break;
          case 'rateit':
             $_SESSION['glpi_js_toload'][$name][] = 'public/lib/jquery.rateit.js';
@@ -6023,7 +6030,7 @@ JAVASCRIPT;
          case 'charts':
             $_SESSION['glpi_js_toload']['charts'][] = 'public/lib/chartist.js';
             break;
-         case 'notifications_ajax';
+         case 'notifications_ajax':
             $_SESSION['glpi_js_toload']['notifications_ajax'][] = 'js/notifications_ajax.js';
             break;
          case 'fuzzy':
@@ -6047,7 +6054,6 @@ JAVASCRIPT;
             break;
          case 'rack':
             $_SESSION['glpi_js_toload'][$name][] = 'js/rack.js';
-            $_SESSION['glpi_js_toload'][$name][] = 'lib/jqueryplugins/jquery.ui.touch-punch.js';
             break;
          case 'leaflet':
             $_SESSION['glpi_js_toload'][$name][] = 'public/lib/leaflet.js';
@@ -6060,6 +6066,7 @@ JAVASCRIPT;
             break;
          case 'photoswipe':
             $_SESSION['glpi_js_toload'][$name][] = 'public/lib/photoswipe.js';
+            break;
          case 'reservations':
             $_SESSION['glpi_js_toload'][$name][] = 'js/reservations.js';
             break;
@@ -6330,7 +6337,7 @@ JAVASCRIPT;
                      <div class="modal-content">
                         <div class="modal-header">
                            <h5 class="modal-title">
-                              <i class="fas fa-arrow-right me-2"></i>
+                              <i class="ti ti-arrow-big-right me-2"></i>
                               {$modal_header}
                            </h5>
                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -6351,7 +6358,7 @@ HTML;
             return $html;
             break;
 
-         default;
+         default:
             $fuzzy_entries = [];
 
             // retrieve menu
@@ -6513,7 +6520,7 @@ HTML;
          return '';
       }
 
-      $import = '@import "' . $file . '";';
+      $import = '@import "' . $path . '";';
       $fckey = 'css_raw_file_' . $file;
       $file_hash = self::getScssFileHash($path);
 
@@ -6525,9 +6532,7 @@ HTML;
          }
       }
 
-      $scss->addImportPath(GLPI_ROOT);
-
-      // Enable imports of ".scss" files from "node_modules", when path starts with "~".
+      // Enable imports of ".scss" files from "css/lib", when path starts with "~".
       $scss->addImportPath(
          function($path) {
             $file_chunks = [];
@@ -6622,9 +6627,6 @@ CSS;
             $potential_paths[] = GLPI_ROOT . '/css/lib/' . $import_dirname . '/' . $import_filename;
             $potential_paths[] = GLPI_ROOT . '/css/lib/' . $import_dirname . '/_' . $import_filename;
          } else {
-            // Search using path relative to GLPI root
-            $potential_paths[] = GLPI_ROOT . '/' . $import_dirname . '/' . $import_filename;
-            $potential_paths[] = GLPI_ROOT . '/' . $import_dirname . '/_' . $import_filename;
             // Search using path relative to current file
             $potential_paths[] = dirname($filepath) . '/' . $import_dirname . '/' . $import_filename;
             $potential_paths[] = dirname($filepath) . '/' . $import_dirname . '/_' . $import_filename;

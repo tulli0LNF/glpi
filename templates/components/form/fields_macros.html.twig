@@ -180,7 +180,14 @@
 
 
 {% macro textareaField(name, value, label = '', options = {}) %}
-   {% set options = {'rand': random()}|merge(options) %}
+   {% set options = {
+      'rand': random(),
+      'enable_richtext': false,
+      'enable_images': true,
+      'enable_fileupload': false,
+      'uploads': []
+   }|merge(options) %}
+
    {% if options.fields_template.isMandatoryField(name) %}
       {% set options = {'required': true}|merge(options) %}
    {% endif %}
@@ -197,16 +204,24 @@
    {% if options.enable_richtext %}
       {% do call('Html::initEditorSystem', [
          id,
-         options.rand
+         options.rand,
+         true,
+         options.disabled|default(false)
       ]) %}
    {% endif %}
+
+   {% set add_html = '' %}
    {% if options.enable_fileupload %}
       {% set add_html %}
-         {% do call('Html::file', [{'editor_id': id}]) %}
+         {% do call('Html::file', [{'editor_id': id, 'multiple': true, 'uploads': options.uploads}]) %}
       {% endset %}
-
-      {% set options = options|merge({'add_field_html': add_html}) %}
+   {% elseif not options.enable_fileupload and options.enable_richtext and options.enable_images %}
+      {% set add_html %}
+         {% do call('Html::file', [{'editor_id': id, 'name': name, 'only_uploaded_files': true, 'uploads': options.uploads}]) %}
+      {% endset %}
    {% endif %}
+
+   {% set options = options|merge({'add_field_html': add_html}) %}
 
    {{ _self.field(name, field, label, options) }}
    {% if options.enable_mentions and config('use_notifications') %}
@@ -358,7 +373,7 @@
             <input type="hidden" name="_blank_{{ name }}" />
             <button type="button" class="btn p-2 position-absolute top-0 start-0" title="{{ __('Delete') }}"
                     onclick="const blank_input = $('input[name=\'_blank_{{ name }}\']'); blank_input.val(blank_input.val() ? '' : true); $(this).toggleClass('btn-danger')">
-               <i class="fas fa-times"></i>
+               <i class="ti ti-x"></i>
             </button>
          {% endif %}
       </div>
@@ -510,6 +525,17 @@
       }|merge(options)]) %}
    {% endset %}
 
+   {{ _self.field(name, field, label, options|merge({'id': 'dropdown_' ~ name ~ '_' ~ options.rand})) }}
+{% endmacro %}
+
+{% macro dropdownItemsFromItemtypes(name, label = '', options = {}) %}
+   {% set options = {
+      'rand': random()
+   }|merge(options) %}
+
+   {% set field %}
+      {% do call('Dropdown::showSelectItemFromItemtypes', [options]) %}
+   {% endset %}
    {{ _self.field(name, field, label, options|merge({'id': 'dropdown_' ~ name ~ '_' ~ options.rand})) }}
 {% endmacro %}
 

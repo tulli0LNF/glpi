@@ -4096,7 +4096,7 @@ $tables['glpi_notificationtemplatetranslations'] = [
 <p>##ENDFOREACHitems##</p>
 ##IFticket.assigntousers## <span style="color: #8b8c8f; font-weight: bold; text-decoration: underline;"> ##lang.ticket.assigntousers##</span>&#160;: ##ticket.assigntousers## ##ENDIFticket.assigntousers##<br /> <span style="color: #8b8c8f; font-weight: bold; text-decoration: underline;">##lang.ticket.status## </span>&#160;: ##ticket.status##<br /> ##IFticket.assigntogroups## <span style="color: #8b8c8f; font-weight: bold; text-decoration: underline;"> ##lang.ticket.assigntogroups##</span>&#160;: ##ticket.assigntogroups## ##ENDIFticket.assigntogroups##<br /> <span style="color: #8b8c8f; font-weight: bold; text-decoration: underline;"> ##lang.ticket.urgency##</span>&#160;: ##ticket.urgency##<br /> <span style="color: #8b8c8f; font-weight: bold; text-decoration: underline;"> ##lang.ticket.impact##</span>&#160;: ##ticket.impact##<br /> <span style="color: #8b8c8f; font-weight: bold; text-decoration: underline;"> ##lang.ticket.priority##</span>&#160;: ##ticket.priority## <br /> ##IFticket.user.email##<span style="color: #8b8c8f; font-weight: bold; text-decoration: underline;"> ##lang.ticket.user.email##</span>&#160;: ##ticket.user.email ##ENDIFticket.user.email##    <br /> ##IFticket.category##<span style="color: #8b8c8f; font-weight: bold; text-decoration: underline;">##lang.ticket.category## </span>&#160;:##ticket.category## ##ENDIFticket.category## ##ELSEticket.category## ##lang.ticket.nocategoryassigned## ##ENDELSEticket.category##    <br /> <span style="color: #8b8c8f; font-weight: bold; text-decoration: underline;"> ##lang.ticket.content##</span>&#160;: ##ticket.content##</p>
 <br />##IFticket.storestatus=6##<br /><span style="text-decoration: underline;"><strong><span style="color: #888888;">##lang.ticket.solvedate##</span></strong></span> : ##ticket.solvedate##<br /><span style="color: #888888;"><strong><span style="text-decoration: underline;">##lang.ticket.solution.type##</span></strong></span> : ##ticket.solution.type##<br /><span style="text-decoration: underline; color: #888888;"><strong>##lang.ticket.solution.description##</strong></span> : ##ticket.solution.description##<br />##ENDIFticket.storestatus##</p>
-<p>##ENDFOREACHtimelineitems##</p>
+<p>##FOREACHtimelineitems##</p>
 <div class="description b"><br /><strong> [##timelineitems.date##]</strong><br /><span style="color: #8b8c8f; font-weight: bold; text-decoration: underline;"> ##lang.timelineitems.author## </span> ##<span style="color: #000000; font-weight: bold; text-decoration: underline; background-color: #ffffff;">timelineitems</span>.author##<br /><span style="color: #8b8c8f; font-weight: bold; text-decoration: underline;"> ##lang.timelineitems.description## </span> ##<span style="color: #000000; font-weight: bold; text-decoration: underline;">timelineitems</span>.description##<br /><span style="color: #8b8c8f; font-weight: bold; text-decoration: underline;"> ##lang.timelineitems.date## </span> ##<span style="color: #000000; font-weight: bold; text-decoration: underline;">timelineitems</span>.date##<br /><span style="color: #8b8c8f; font-weight: bold; text-decoration: underline;">##lang.timelineitems.position## </span><span style="color: #000000;"> ##<span style="font-weight: bold; text-decoration: underline;">timelineitems</span>.<span style="font-weight: bold; text-decoration: underline;">position</span>##</span></div>
 <div class="description b"><span style="color: #8b8c8f; font-weight: bold; text-decoration: underline;">##lang.timelineitems.type## </span> ##<span style="color: #000000;"><span style="font-weight: bold; text-decoration: underline;">timelineitems</span>.<span style="font-weight: bold; text-decoration: underline;">type</span>##</span></div>
 <div class="description b"><span style="color: #8b8c8f; font-weight: bold; text-decoration: underline;">##lang.timelineitems.typename## </span> #<span style="color: #000000;">#<span style="font-weight: bold; text-decoration: underline;">timelineitems</span>.<span style="font-weight: bold; text-decoration: underline;">typename</span>##</span></div>
@@ -4285,6 +4285,8 @@ style="color: #8b8c8f; font-weight: bold; text-decoration: underline;"&gt;
 ##lang.consumable.reference## : ##consumable.reference##
 
 ##lang.consumable.remaining## : ##consumable.remaining##
+##lang.consumable.stock_target## : ##consumable.stock_target##
+##lang.consumable.to_order## : ##consumable.to_order##
 
 ##consumable.url##
 
@@ -4295,6 +4297,8 @@ style="color: #8b8c8f; font-weight: bold; text-decoration: underline;"&gt;
 &lt;br /&gt;##lang.consumable.item## : ##consumable.item##&lt;br /&gt;
 &lt;br /&gt;##lang.consumable.reference## : ##consumable.reference##&lt;br /&gt;
 ##lang.consumable.remaining## : ##consumable.remaining##&lt;br /&gt;
+##lang.consumable.stock_target## : ##consumable.stock_target##&lt;br /&gt;
+##lang.consumable.to_order## : ##consumable.to_order##&lt;br /&gt;
 &lt;a href="##consumable.url##"&gt; ##consumable.url##&lt;/a&gt;&lt;br /&gt;
    ##ENDFOREACHconsumables##&lt;/p&gt;',
    ], [
@@ -4312,6 +4316,8 @@ style="color: #8b8c8f; font-weight: bold; text-decoration: underline;"&gt;
 ##lang.cartridge.reference## : ##cartridge.reference##
 
 ##lang.cartridge.remaining## : ##cartridge.remaining##
+##lang.cartridge.stock_target## : ##cartridge.stock_target##
+##lang.cartridge.to_order## : ##cartridge.to_order##
 
 ##cartridge.url##
  ##ENDFOREACHcartridges##',
@@ -4323,6 +4329,10 @@ style="color: #8b8c8f; font-weight: bold; text-decoration: underline;"&gt;
 ##cartridge.reference##&lt;br /&gt;
 ##lang.cartridge.remaining## :
 ##cartridge.remaining##&lt;br /&gt;
+##lang.cartridge.stock_target## :
+##cartridge.stock_target##&lt;br /&gt;
+##lang.cartridge.to_order## :
+##cartridge.to_order##&lt;br /&gt;
 &lt;a href="##cartridge.url##"&gt;
 ##cartridge.url##&lt;/a&gt;&lt;br /&gt;
 ##ENDFOREACHcartridges##&lt;/p&gt;',

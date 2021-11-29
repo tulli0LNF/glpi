@@ -938,7 +938,7 @@ class Auth extends CommonGLPI {
       if (!$DB->isSlave()) {
          // GET THE IP OF THE CLIENT
          $ip = getenv("HTTP_X_FORWARDED_FOR")?
-            Sanitizer::sanitize(getenv("HTTP_X_FORWARDED_FOR")):
+            Sanitizer::sanitize(getenv("HTTP_X_FORWARDED_FOR"), false):
             getenv("REMOTE_ADDR");
 
          if ($this->auth_succeded) {
@@ -1720,7 +1720,7 @@ class Auth extends CommonGLPI {
 
 
    static function getIcon() {
-      return "fas fa-sign-in-alt";
+      return "ti ti-login";
    }
 
    /**

@@ -197,9 +197,9 @@ class Search {
          }
          $typename = class_exists($itemtype) ? $itemtype::getTypeName($data['data']['totalcount']) : $itemtype;
 
-         echo "<div class='card'>";
-         echo "<div class='card-body' id='map_container'>";
-         echo "<div class='card-title'>".__('Search results for localized items only')."</div>";
+         echo "<div class='card border-top-0 rounded-0 search-as-map'>";
+         echo "<div class='card-body px-0' id='map_container'>";
+         echo "<small class='text-muted p-1'>".__('Search results for localized items only')."</small>";
          $js = "$(function() {
                var map = initMap($('#map_container'), 'map', 'full');
                _loadMap(map, '$itemtype');
@@ -2223,17 +2223,17 @@ class Search {
       echo "<div class='card-footer d-flex search_actions'>";
       $linked = self::getMetaItemtypeAvailable($itemtype);
       echo "<button id='addsearchcriteria$rand_criteria' class='btn btn-sm btn-outline-secondary me-1' type='button'>
-               <i class='fas fa-plus-square'></i>
+               <i class='ti ti-square-plus'></i>
                <span class='d-none d-sm-block'>".__s('rule')."</span>
             </button>";
       if (count($linked)) {
          echo "<button id='addmetasearchcriteria$rand_criteria' class='btn btn-sm btn-outline-secondary me-1' type='button'>
-                  <i class='far fa-plus-square'></i>
+                  <i class='ti ti-circle-plus'></i>
                   <span class='d-none d-sm-block'>".__s('global rule')."</span>
                </button>";
       }
       echo "<button id='addcriteriagroup$rand_criteria' class='btn btn-sm btn-outline-secondary me-1' type='button'>
-               <i class='fas fa-plus-circle'></i>
+               <i class='ti ti-code-plus'></i>
                <span class='d-none d-sm-block'>".__s('group')."</span>
             </button>";
       $json_p = json_encode($p);
@@ -2241,7 +2241,7 @@ class Search {
       if ($p['mainform']) {
          // Display submit button
          echo "<button class='btn btn-sm btn-primary me-1' type='submit' name='".$p['actionname']."'>
-               <i class='fas fa-search'></i>
+               <i class='ti ti-list-search'></i>
                <span class='d-none d-sm-block'>".$p['actionvalue']."</span>
             </button>";
          if ($p['showbookmark'] || $p['showreset']) {
@@ -2260,7 +2260,7 @@ class Search {
                   .$p['target']
                   .(strpos($p['target'], '?') ? '&amp;' : '?')
                   ."reset=reset' title=\"".__s('Blank')."\"
-                  ><i class='fas fa-lg fa-undo'></i></a>";
+                  ><i class='ti ti-circle-x'></i></a>";
             }
          }
       }
@@ -2445,7 +2445,7 @@ JAVASCRIPT;
          echo "<button class='btn btn-sm btn-icon btn-ghost-secondary remove-search-criteria' type='button' data-rowid='$rowid'
                        data-bs-toggle='tooltip' data-bs-placement='left'
                        title=\"".__s('Delete a rule')."\">
-            <i class='far fa-minus-square' alt='-'></i>
+            <i class='ti ti-square-minus' alt='-'></i>
          </button>";
          echo "</div>";
       }
@@ -2595,7 +2595,7 @@ JAVASCRIPT;
 
       echo "<div class='col-auto'>";
       echo "<button class='btn btn-sm btn-icon btn-ghost-secondary remove-search-criteria' type='button' data-rowid='$rowid'>
-         <i class='far fa-minus-square' alt='-' title=\"".
+         <i class='ti ti-square-minus' alt='-' title=\"".
          __s('Delete a global rule')."\"></i>
       </button>";
       echo "</div>";
@@ -2690,7 +2690,7 @@ JAVASCRIPT;
                     data-bs-toggle='tooltip' data-bs-placement='left'
                     title=\"".__s('Delete a rule')."\"
       >
-         <i class='far fa-minus-square' alt='-'></i>
+         <i class='ti ti-square-minus' alt='-'></i>
       </button>";
       echo "</div>";
       echo "<div class='col-auto'>";
@@ -4151,6 +4151,7 @@ JAVASCRIPT;
       switch ($searchtype) {
          case "notcontains" :
             $nott = !$nott;
+            //negated, use contains case
          case "contains" :
             $SEARCH = self::makeTextSearch($val, $nott);
             break;
@@ -5107,6 +5108,7 @@ JAVASCRIPT;
 
                case "mainitemtype_mainitem" :
                   $addmain = 'main';
+                  //addmain defined to be used in itemtype_item case
 
                case "itemtype_item" :
                   if (!isset($addmain)) {
@@ -6124,6 +6126,7 @@ JAVASCRIPT;
                                                                    'display' => false]));
                   return $out;
                }
+               break;
 
             case 'glpi_ticketvalidations.status' :
                $out   = '';
@@ -6454,9 +6457,10 @@ JAVASCRIPT;
             case 'progressbar':
                if (!isset($progressbar_data)) {
                   $bar_color = 'green';
+                  $percent   = ltrim($data[$ID][0]['name'], 0);
                   $progressbar_data = [
-                     'percent'      => $data[$ID][0]['name'],
-                     'percent_text' => $data[$ID][0]['name'],
+                     'percent'      => $percent,
+                     'percent_text' => $percent,
                      'color'        => $bar_color,
                      'text'         => ''
                   ];

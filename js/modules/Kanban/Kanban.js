@@ -31,6 +31,7 @@
 
 import SearchTokenizer from "../SearchTokenizer/SearchTokenizer.js";
 /* global sortable */
+/* global glpi_toast_error */
 
 /**
  * Kanban rights structure
@@ -452,10 +453,10 @@ class GLPIKanbanRights {
             add_itemtype_bulk_dropdown += "<li id='kanban-bulk-add-" + itemtype + "' class='dropdown-item'><span>" + self.supported_itemtypes[itemtype]['name'] + '</span></li>';
          });
          add_itemtype_bulk_dropdown += '</ul>';
-         const add_itemtype_bulk_link = '<a href="#">' + '<i class="fas fa-list"></i>' + __('Bulk add') + '</a>';
+         const add_itemtype_bulk_link = '<a href="#">' + '<i class="fa-fw fas fa-list"></i>' + __('Bulk add') + '</a>';
          column_overflow_dropdown += '<li class="dropdown-trigger dropdown-item">' + add_itemtype_bulk_link + add_itemtype_bulk_dropdown + '</li>';
          if (self.rights.canModifyView()) {
-            column_overflow_dropdown += "<li class='kanban-remove dropdown-item' data-forbid-protected='true'><span>"  + '<i class="fas fa-trash-alt"></i>' + __('Delete') + "</span></li>";
+            column_overflow_dropdown += "<li class='kanban-remove dropdown-item' data-forbid-protected='true'><span>"  + '<i class="fa-fw ti ti-trash"></i>' + __('Delete') + "</span></li>";
          }
          column_overflow_dropdown += '</ul>';
          kanban_container.append(column_overflow_dropdown);
@@ -465,13 +466,13 @@ class GLPIKanbanRights {
          let card_overflow_dropdown = "<ul id='kanban-item-overflow-dropdown' class='kanban-dropdown dropdown-menu' style='display: none'>";
          card_overflow_dropdown += `
             <li class='kanban-item-goto dropdown-item'>
-               <a href="#"><i class="fas fa-share"></i>${__('Go to')}</a>
+               <a href="#"><i class="fa-fw fas fa-share"></i>${__('Go to')}</a>
             </li>`;
          if (self.rights.canDeleteItem()) {
             card_overflow_dropdown += `
-                <li class='kanban-item-remove  dropdown-item'>
+                <li class='kanban-item-remove dropdown-item'>
                    <span>
-                      <i class="fas fa-trash-alt"></i>${__('Delete')}
+                      <i class="fa-fw ti ti-trash"></i>${__('Delete')}
                    </span>
                 </li>`;
          }
@@ -795,9 +796,9 @@ class GLPIKanbanRights {
 
             let delete_action = $(card_overflow_dropdown.find('.kanban-item-remove'));
             if (card.hasClass('deleted')) {
-               delete_action.html('<span><i class="fas fa-trash-alt"></i>'+__('Purge')+'</span>');
+               delete_action.html('<span><i class="ti ti-trash"></i>'+__('Purge')+'</span>');
             } else {
-               delete_action.html('<span><i class="fas fa-trash-alt"></i>'+__('Delete')+'</span>');
+               delete_action.html('<span><i class="ti ti-trash"></i>'+__('Delete')+'</span>');
             }
          });
 
@@ -833,6 +834,9 @@ class GLPIKanbanRights {
             const column = $(e.target.closest('.kanban-dropdown')).data('trigger-button').closest('.kanban-column');
             // Hide that column
             hideColumn(getColumnIDFromElement(column));
+         });
+         $(self.element).on('click', '.item-details-panel .kanban-item-edit-team', (e) => {
+            self.showTeamModal($(e.target).closest('.item-details-panel').data('card'));
          });
          $(self.element + ' .kanban-container').on('click', '.kanban-item-remove', function(e) {
             // Get root dropdown, then the button that triggered it, and finally the card that the button is in
@@ -999,10 +1003,20 @@ class GLPIKanbanRights {
          $(self.element + ' .kanban-container').on('click', '.kanban-item .kanban-item-title', function(e) {
             e.preventDefault();
             const card = $(e.target).closest('.kanban-item');
-            const [itemtype, items_id] = card.prop('id').split('-');
-            $('#kanban-modal .modal-body').load((self.ajax_root + "kanban.php?action=show_card_edit_form&itemtype="+itemtype+"&card=" + items_id));
-            $('#kanban-modal').modal('show');
+            self.showCardPanel(card);
          });
+      };
+
+      const showModal = (content, data) => {
+         const modal = $('#kanban-modal');
+         modal.removeData();
+         modal.data(data);
+         modal.find('.modal-body').html(content);
+         modal.modal('show');
+      };
+
+      const hideModal = () => {
+         $('#kanban-modal').modal('hide');
       };
 
       /**
@@ -1720,7 +1734,7 @@ class GLPIKanbanRights {
                <i class="${self.supported_itemtypes[itemtype]['icon']}"></i>
                ${self.supported_itemtypes[itemtype]['name']}
             </span>`;
-         form_header += "<i class='fas fa-times' title='Close' onclick='$(this).parent().parent().remove()'></i></div>";
+         form_header += "<i class='ti ti-x' title='Close' onclick='$(this).parent().parent().remove()'></i></div>";
          add_form += form_header;
 
          add_form += "<div class='kanban-item-content'>";
@@ -1782,7 +1796,7 @@ class GLPIKanbanRights {
                    <i class="${self.supported_itemtypes[itemtype]['icon']}"></i>
                    ${self.supported_itemtypes[itemtype]['name']}
                 </span>
-                <i class='fas fa-times' title='Close' onclick='$(this).parent().parent().remove()'></i>
+                <i class='ti ti-x' title='Close' onclick='$(this).parent().parent().remove()'></i>
                 <div>
                     <span class="kanban-item-subtitle">${__("One item per line")}</span>
                  </div>
@@ -2399,6 +2413,144 @@ class GLPIKanbanRights {
          self.user_state = new_state;
       };
 
+      this.showCardPanel = (card) => {
+         if (!card) {
+            $('.item-details-panel').remove();
+         }
+         const [itemtype, items_id] = card.prop('id').split('-');
+         $.ajax({
+            method: 'GET',
+            url: (self.ajax_root + "kanban.php"),
+            data: {
+               itemtype: itemtype,
+               items_id: items_id,
+               action: 'load_item_panel'
+            }
+         }).done((result) => {
+            $('.item-details-panel').remove();
+            $(self.element).append($(result));
+            $('.item-details-panel').data('card', card);
+            // Load badges
+            $('.item-details-panel ul.team-list li').each((i, l) => {
+               l = $(l);
+               const member_itemtype = l.attr('data-itemtype');
+               const member_items_id = l.attr('data-items_id');
+               let member_item = getTeamBadge({
+                  itemtype: member_itemtype,
+                  id: member_items_id,
+                  name: l.attr('data-name'),
+                  realname: l.attr('data-realname'),
+                  firstname: l.attr('data-firstname')
+               });
+               l.append(`
+                     <div class="member-details">
+                        ${member_item}
+                        ${l.attr('data-name') || `${member_itemtype} (${member_items_id})`}
+                     </div>
+                     <button type="button" name="delete" class="btn btn-ghost-danger">
+                        <i class="ti ti-x" title="${__('Delete')}"></i>
+                     </button>
+                  `);
+            });
+         });
+
+         $(self.element).on('click', '.item-details-panel ul.team-list button[name="delete"]', (e) => {
+            const list_item = $(e.target).closest('li');
+            const member_itemtype = list_item.attr('data-itemtype');
+            const member_items_id = list_item.attr('data-items_id');
+            const panel = $(e.target).closest('.item-details-panel');
+            const itemtype = panel.attr('data-itemtype');
+            const items_id = panel.attr('data-items_id');
+
+            if (itemtype && items_id) {
+               removeTeamMember(itemtype, items_id, member_itemtype, member_items_id);
+               list_item.remove();
+            }
+         });
+      };
+
+      this.showTeamModal = (card_el) => {
+         const [card_itemtype, card_items_id] = card_el.prop('id').split('-', 2);
+         let content = '';
+
+         const teammember_types_dropdown = $(`#kanban-teammember-item-dropdown-${card_itemtype}`).html();
+         content += `
+            ${teammember_types_dropdown}
+            <button type="button" name="add" class="btn btn-primary">${_x('button', 'Add')}</button>
+         `;
+         const modal = $('#kanban-modal');
+         modal.on('click', 'button[name="add"]', () => {
+            const itemtype = modal.find('select[name="itemtype"]').val();
+            const items_id = modal.find('select[name="items_id"]').val();
+            const role = modal.find('select[name="role"]').val();
+
+            if (itemtype && items_id) {
+               addTeamMember(card_itemtype, card_items_id, itemtype, items_id, role).done(() => {
+                  self.showCardPanel($(`#${card_itemtype}-${card_items_id}`));
+               });
+               hideModal();
+            }
+         });
+         modal.on('click', 'button[name="delete"]', (e) => {
+            const list_item = $(e.target).closest('li');
+            const itemtype = list_item.attr('data-itemtype');
+            const items_id = list_item.attr('data-items-id');
+            const role = list_item.closest('ul').attr('data-role');
+
+            if (itemtype && items_id) {
+               removeTeamMember(card_itemtype, card_items_id, itemtype, items_id, role).done(() => {
+                  self.showCardPanel($(`#${card_itemtype}-${card_items_id}`));
+               });
+               list_item.remove();
+            }
+         });
+         showModal(content, {
+            card_el: card_el
+         });
+      };
+
+      const addTeamMember = (itemtype, items_id, member_type, members_id, role) => {
+         return $.ajax({
+            method: 'POST',
+            url: (self.ajax_root + "kanban.php"),
+            data: {
+               action: "add_teammember",
+               itemtype: itemtype,
+               items_id: items_id,
+               itemtype_teammember: member_type,
+               items_id_teammember: members_id,
+               role: role
+            }
+         }).done(() => {
+            self.refresh(null, null, function() {
+               _backgroundRefreshTimer = window.setTimeout(_backgroundRefresh, self.background_refresh_interval * 60 * 1000);
+            }, false);
+         }).fail(() => {
+            glpi_toast_error(__('Failed to add team member'), __('Error'));
+         });
+      };
+
+      const removeTeamMember = (itemtype, items_id, member_type, members_id, role) => {
+         return $.ajax({
+            method: 'POST',
+            url: (self.ajax_root + "kanban.php"),
+            data: {
+               action: "delete_teammember",
+               itemtype: itemtype,
+               items_id: items_id,
+               itemtype_teammember: member_type,
+               items_id_teammember: members_id,
+               role: role
+            }
+         }).done(() => {
+            self.refresh(null, null, function() {
+               _backgroundRefreshTimer = window.setTimeout(_backgroundRefresh, self.background_refresh_interval * 60 * 1000);
+            }, false);
+         }).fail(() => {
+            glpi_toast_error(__('Failed to remove team member'), __('Error'));
+         });
+      };
+
       /**
        * Restore the Kanban state for the user from the DB if it exists.
        * This restores the visible columns and their collapsed state.
@@ -2517,7 +2669,7 @@ class GLPIKanbanRights {
             return;
          }
          _backgroundRefresh = function() {
-            const sorting = $('.ui-sortable-helper');
+            const sorting = $('.sortable-placeholder');
             // Check if the user is current sorting items
             if (sorting.length > 0) {
                // Wait 10 seconds and try the background refresh again

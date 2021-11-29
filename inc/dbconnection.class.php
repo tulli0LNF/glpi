@@ -40,6 +40,36 @@ if (!defined('GLPI_ROOT')) {
 **/
 class DBConnection extends CommonDBTM {
 
+   /**
+    * "Use timezones" property name.
+    * @var string
+    */
+   public const PROPERTY_USE_TIMEZONES = 'use_timezones';
+
+   /**
+    * "Log deprecation warnings" property name.
+    * @var string
+    */
+   public const PROPERTY_LOG_DEPRECATION_WARNINGS = 'log_deprecation_warnings';
+
+   /**
+    * "Use UTF8MB4" property name.
+    * @var string
+    */
+   public const PROPERTY_USE_UTF8MB4 = 'use_utf8mb4';
+
+   /**
+    * "Allow MyISAM" property name.
+    * @var string
+    */
+   public const PROPERTY_ALLOW_MYISAM = 'allow_myisam';
+
+   /**
+    * "Allow datetime" property name.
+    * @var string
+    */
+   public const PROPERTY_ALLOW_DATETIME = 'allow_datetime';
+
    static protected $notable = true;
 
 
@@ -57,8 +87,11 @@ class DBConnection extends CommonDBTM {
     * @param string  $user                      The DB user
     * @param string  $password                  The DB password
     * @param string  $dbname                    The name of the DB
-    * @param boolean $use_utf8mb4               Flag that indicates if utf8mb4 charset/collation should be used
+    * @param boolean $use_timezones             Flag that indicates if timezones usage should be activated
     * @param boolean $log_deprecation_warnings  Flag that indicates if DB deprecation warnings should be logged
+    * @param boolean $use_utf8mb4               Flag that indicates if utf8mb4 charset/collation should be used
+    * @param boolean $allow_myisam              Flag that indicates if MyISAM engine usage should be allowed
+    * @param boolean $allow_datetime            Flag that indicates if datetime fields usage should be allowed
     * @param string  $config_dir
     *
     * @return boolean
@@ -68,8 +101,11 @@ class DBConnection extends CommonDBTM {
       string $user,
       string $password,
       string $dbname,
-      bool $use_utf8mb4 = false,
+      bool $use_timezones = false,
       bool $log_deprecation_warnings = false,
+      bool $use_utf8mb4 = false,
+      bool $allow_myisam = true,
+      bool $allow_datetime = true,
       string $config_dir = GLPI_CONFIG_DIR
    ): bool {
 
@@ -79,11 +115,20 @@ class DBConnection extends CommonDBTM {
          'dbpassword' => rawurlencode($password),
          'dbdefault'  => $dbname,
       ];
-      if ($use_utf8mb4) {
-         $properties['use_utf8mb4'] = true;
+      if ($use_timezones) {
+         $properties[self::PROPERTY_USE_TIMEZONES] = true;
       }
       if ($log_deprecation_warnings) {
-         $properties['log_deprecation_warnings'] = true;
+         $properties[self::PROPERTY_LOG_DEPRECATION_WARNINGS] = true;
+      }
+      if ($use_utf8mb4) {
+         $properties[self::PROPERTY_USE_UTF8MB4] = true;
+      }
+      if (!$allow_myisam) {
+         $properties[self::PROPERTY_ALLOW_MYISAM] = false;
+      }
+      if (!$allow_datetime) {
+         $properties[self::PROPERTY_ALLOW_DATETIME] = false;
       }
 
       $config_str = '<?php' . "\n" . 'class DB extends DBmysql {' . "\n";
@@ -109,18 +154,28 @@ class DBConnection extends CommonDBTM {
     * @since 10.0.0
     */
    static function updateConfigProperty($name, $value, $update_slave = true, string $config_dir = GLPI_CONFIG_DIR): bool {
+      return self::updateConfigProperties([$name => $value], $update_slave, $config_dir);
+   }
+
+
+   /**
+    * Change variables value in config(s) file.
+    *
+    * @param array  $properties
+    * @param bool   $update_slave
+    * @param string $config_dir
+    *
+    * @return boolean
+    *
+    * @since 10.0.0
+    */
+   static function updateConfigProperties(array $properties, $update_slave = true, string $config_dir = GLPI_CONFIG_DIR): bool {
       $main_config_file = 'config_db.php';
       $slave_config_file = 'config_db_slave.php';
 
       if (!file_exists($config_dir . '/' . $main_config_file)) {
          return false;
       }
-
-      if ($name === 'password') {
-         $value = rawurlencode($value);
-      }
-
-      $pattern = '/(?<line>' . preg_quote('$' . $name, '/') . '\s*=\s*(?<value>[^;]+)\s*;)' . '/';
 
       $files = [$main_config_file];
       if ($update_slave && file_exists($config_dir . '/' . $slave_config_file)) {
@@ -132,17 +187,25 @@ class DBConnection extends CommonDBTM {
             return false;
          }
 
-         $matches = [];
-         if (preg_match($pattern, $config_str, $matches)) {
-            // Property declaration is located in config file, we have to update it.
-            $updated_line = str_replace($matches['value'], var_export($value, true), $matches['line']);
-            $config_str = str_replace($matches['line'], $updated_line, $config_str);
-         } else {
-            // Property declaration is not located in config file, we have to add it.
-            $ending_bracket_pos = mb_strrpos($config_str, '}');
-            $config_str = mb_substr($config_str, 0, $ending_bracket_pos)
-               . sprintf('   public $%s = %s;', $name, var_export($value, true)) . "\n"
-               . mb_substr($config_str, $ending_bracket_pos);
+         foreach ($properties as $name => $value) {
+            if ($name === 'password') {
+               $value = rawurlencode($value);
+            }
+
+            $pattern = '/(?<line>' . preg_quote('$' . $name, '/') . '\s*=\s*(?<value>[^;]+)\s*;)' . '/';
+
+            $matches = [];
+            if (preg_match($pattern, $config_str, $matches)) {
+               // Property declaration is located in config file, we have to update it.
+               $updated_line = str_replace($matches['value'], var_export($value, true), $matches['line']);
+               $config_str = str_replace($matches['line'], $updated_line, $config_str);
+            } else {
+               // Property declaration is not located in config file, we have to add it.
+               $ending_bracket_pos = mb_strrpos($config_str, '}');
+               $config_str = mb_substr($config_str, 0, $ending_bracket_pos)
+                  . sprintf('   public $%s = %s;', $name, var_export($value, true)) . "\n"
+                  . mb_substr($config_str, $ending_bracket_pos);
+            }
          }
 
          if (!Toolbox::writeConfig($file, $config_str, $config_dir)) {
@@ -161,8 +224,11 @@ class DBConnection extends CommonDBTM {
     * @param string  $user                      The DB user
     * @param string  $password                  The DB password
     * @param string  $dbname                    The name of the DB
-    * @param boolean $use_utf8mb4               Flag that indicates if utf8mb4 charset/collation should be used
+    * @param boolean $use_timezones             Flag that indicates if timezones usage should be activated
     * @param boolean $log_deprecation_warnings  Flag that indicates if DB deprecation warnings should be logged
+    * @param boolean $use_utf8mb4               Flag that indicates if utf8mb4 charset/collation should be used
+    * @param boolean $allow_myisam              Flag that indicates if MyISAM engine usage should be allowed
+    * @param boolean $allow_datetime            Flag that indicates if datetime fields usage should be allowed
     * @param string  $config_dir
     *
     * @return boolean for success
@@ -172,8 +238,11 @@ class DBConnection extends CommonDBTM {
       string $user,
       string $password,
       string $dbname,
-      bool $use_utf8mb4 = false,
+      bool $use_timezones = false,
       bool $log_deprecation_warnings = false,
+      bool $use_utf8mb4 = false,
+      bool $allow_myisam = true,
+      bool $allow_datetime = true,
       string $config_dir = GLPI_CONFIG_DIR
    ): bool {
 
@@ -190,11 +259,20 @@ class DBConnection extends CommonDBTM {
          'dbpassword' => rawurlencode($password),
          'dbdefault'  => $dbname,
       ];
-      if ($use_utf8mb4) {
-         $properties['use_utf8mb4'] = true;
+      if ($use_timezones) {
+         $properties[self::PROPERTY_USE_TIMEZONES] = true;
       }
       if ($log_deprecation_warnings) {
-         $properties['log_deprecation_warnings'] = true;
+         $properties[self::PROPERTY_LOG_DEPRECATION_WARNINGS] = true;
+      }
+      if ($use_utf8mb4) {
+         $properties[self::PROPERTY_USE_UTF8MB4] = true;
+      }
+      if (!$allow_myisam) {
+         $properties[self::PROPERTY_ALLOW_MYISAM] = false;
+      }
+      if (!$allow_datetime) {
+         $properties[self::PROPERTY_ALLOW_DATETIME] = false;
       }
 
       $config_str = '<?php' . "\n" . 'class DB extends DBmysql {' . "\n";
@@ -238,7 +316,17 @@ class DBConnection extends CommonDBTM {
    **/
    static function createDBSlaveConfig() {
       global $DB;
-      self::createSlaveConnectionFile("localhost", "glpi", "glpi", "glpi", $DB->use_utf8mb4, $DB->log_deprecation_warnings);
+      self::createSlaveConnectionFile(
+         "localhost",
+         "glpi",
+         "glpi",
+         "glpi",
+         $DB->use_timezones,
+         $DB->log_deprecation_warnings,
+         $DB->use_utf8mb4,
+         $DB->allow_myisam,
+         $DB->allow_datetime
+      );
    }
 
 
@@ -252,7 +340,17 @@ class DBConnection extends CommonDBTM {
    **/
    static function saveDBSlaveConf($host, $user, $password, $DBname) {
       global $DB;
-      self::createSlaveConnectionFile($host, $user, $password, $DBname, $DB->use_utf8mb4, $DB->log_deprecation_warnings);
+      self::createSlaveConnectionFile(
+         $host,
+         $user,
+         $password,
+         $DBname,
+         $DB->use_timezones,
+         $DB->log_deprecation_warnings,
+         $DB->use_utf8mb4,
+         $DB->allow_myisam,
+         $DB->allow_datetime
+      );
    }
 
 

@@ -35,6 +35,7 @@ if (!defined('GLPI_ROOT')) {
 }
 
 use Glpi\Application\ErrorHandler;
+use Glpi\System\Requirement\DbTimezones;
 
 /**
  *  Database class for Mysql
@@ -112,12 +113,12 @@ class DBmysql {
    public $dbsslcacipher      = null;
 
    /**
-    * Determine if utf8mb4 should be used for DB connection and tables altering operations.
+    * Determine if timezones should be used for timestamp fields.
     * Defaults to false to keep backward compatibility with old DB.
     *
     * @var bool
     */
-   public $use_utf8mb4 = false;
+   public $use_timezones = false;
 
    /**
     * Determine if warnings related to MySQL deprecations should be logged too.
@@ -126,6 +127,30 @@ class DBmysql {
     * @var bool
     */
    public $log_deprecation_warnings = false;
+
+   /**
+    * Determine if utf8mb4 should be used for DB connection and tables altering operations.
+    * Defaults to false to keep backward compatibility with old DB.
+    *
+    * @var bool
+    */
+   public $use_utf8mb4 = false;
+
+   /**
+    * Determine if MyISAM engine usage should be allowed for tables creation/altering operations.
+    * Defaults to true to keep backward compatibility with old DB.
+    *
+    * @var bool
+    */
+   public $allow_myisam = true;
+
+   /**
+    * Determine if datetime fields usage should be allowed for tables creation/altering operations.
+    * Defaults to true to keep backward compatibility with old DB.
+    *
+    * @var bool
+    */
+   public $allow_datetime = true;
 
 
    /** Is it a first connection ?
@@ -246,23 +271,27 @@ class DBmysql {
     *
     * @since 9.5.0
     */
-   protected function guessTimezone() {
-      if (isset($_SESSION['glpi_tz'])) {
-         $zone = $_SESSION['glpi_tz'];
-      } else {
-         $conf_tz = ['value' => null];
-         if ($this->tableExists(Config::getTable())
-             && $this->fieldExists(Config::getTable(), 'value')) {
-            $conf_tz = $this->request([
-               'SELECT' => 'value',
-               'FROM'   => Config::getTable(),
-               'WHERE'  => [
-                  'context'   => 'core',
-                  'name'      => 'timezone'
-                ]
-            ])->current();
+   public function guessTimezone() {
+      if ($this->use_timezones) {
+         if (isset($_SESSION['glpi_tz'])) {
+            $zone = $_SESSION['glpi_tz'];
+         } else {
+            $conf_tz = ['value' => null];
+            if ($this->tableExists(Config::getTable())
+                && $this->fieldExists(Config::getTable(), 'value')) {
+               $conf_tz = $this->request([
+                  'SELECT' => 'value',
+                  'FROM'   => Config::getTable(),
+                  'WHERE'  => [
+                     'context'   => 'core',
+                     'name'      => 'timezone'
+                   ]
+               ])->current();
+            }
+            $zone = !empty($conf_tz['value']) ? $conf_tz['value'] : date_default_timezone_get();
          }
-         $zone = !empty($conf_tz['value']) ? $conf_tz['value'] : date_default_timezone_get();
+      } else {
+         $zone = date_default_timezone_get();
       }
 
       return $zone;
@@ -311,28 +340,7 @@ class DBmysql {
          $TIMER->start();
       }
 
-      if (preg_match('/(ALTER|CREATE)\s+TABLE\s+/', $query)) {
-         $matches = [];
-         if ($this->use_utf8mb4 && preg_match('/(?<invalid>(utf8(_[^\';\s]+)?))[\';\s]/', $query, $matches)) {
-            trigger_error(
-               sprintf(
-                  'Usage of "%s" charset/collation detected, should be "%s"',
-                  $matches['invalid'],
-                  str_replace('utf8', 'utf8mb4', $matches['invalid'])
-               ),
-               E_USER_WARNING
-            );
-         } else if (!$this->use_utf8mb4 && preg_match('/(?<invalid>(utf8mb4(_[^\';\s]+)?))[\';\s]/', $query, $matches)) {
-            trigger_error(
-               sprintf(
-                  'Usage of "%s" charset/collation detected, should be "%s"',
-                  $matches['invalid'],
-                  str_replace('utf8mb4', 'utf8', $matches['invalid'])
-               ),
-               E_USER_WARNING
-            );
-         }
-      }
+      $this->checkForDeprecatedTableOptions($query);
 
       $res = $this->dbh->query($query);
       if (!$res) {
@@ -589,19 +597,31 @@ class DBmysql {
    /**
     * Returns tables using "MyIsam" engine.
     *
+    * @param bool $exclude_plugins
+    *
     * @return DBmysqlIterator
     */
-   public function getMyIsamTables(): DBmysqlIterator {
-      $iterator = $this->listTables('glpi\_%', ['engine' => 'MyIsam']);
+   public function getMyIsamTables(bool $exclude_plugins = false): DBmysqlIterator {
+      $criteria = [
+         'engine' => 'MyIsam',
+      ];
+      if ($exclude_plugins) {
+         $criteria[] = ['NOT' => ['information_schema.tables.table_name' => ['LIKE', 'glpi\_plugin\_%']]];
+      }
+
+      $iterator = $this->listTables('glpi\_%', $criteria);
+
       return $iterator;
    }
 
    /**
     * Returns tables not using "utf8mb4_unicode_ci" collation.
     *
+    * @param bool $exclude_plugins
+    *
     * @return DBmysqlIterator
     */
-   public function getNonUtf8mb4Tables(): DBmysqlIterator {
+   public function getNonUtf8mb4Tables(bool $exclude_plugins = false): DBmysqlIterator {
 
       // Find tables that does not use utf8mb4 collation
       $tables_query = [
@@ -645,11 +665,65 @@ class DBmysql {
          ],
       ];
 
+      if ($exclude_plugins) {
+         $tables_query['WHERE'][] = ['NOT' => ['information_schema.tables.table_name' => ['LIKE', 'glpi\_plugin\_%']]];
+         $columns_query['WHERE'][] = ['NOT' => ['information_schema.tables.table_name' => ['LIKE', 'glpi\_plugin\_%']]];
+      }
+
       $iterator = $this->request([
          'SELECT'   => ['TABLE_NAME'],
          'DISTINCT' => true,
          'FROM'     => new QueryUnion([$tables_query, $columns_query], true),
+         'ORDER'    => ['TABLE_NAME']
       ]);
+
+      return $iterator;
+   }
+
+   /**
+    * Returns tables not compatible with timezone usage, i.e. having "datetime" columns.
+    *
+    * @param bool $exclude_plugins
+    *
+    * @return DBmysqlIterator
+    *
+    * @since 10.0.0
+    */
+   public function getTzIncompatibleTables(bool $exclude_plugins = false): DBmysqlIterator {
+
+      $query = [
+         'SELECT'       => ['information_schema.columns.table_name as TABLE_NAME'],
+         'DISTINCT'     => true,
+         'FROM'         => 'information_schema.columns',
+         'INNER JOIN'   => [
+            'information_schema.tables' => [
+               'FKEY' => [
+                  'information_schema.tables'  => 'table_name',
+                  'information_schema.columns' => 'table_name',
+                  [
+                     'AND' => [
+                        'information_schema.tables.table_schema' => new QueryExpression(
+                           $this->quoteName('information_schema.columns.table_schema')
+                        ),
+                     ]
+                  ],
+               ]
+            ]
+         ],
+         'WHERE'       => [
+            'information_schema.tables.table_schema' => $this->dbdefault,
+            'information_schema.tables.table_name'   => ['LIKE', 'glpi\_%'],
+            'information_schema.tables.table_type'   => 'BASE TABLE',
+            'information_schema.columns.data_type'   => 'datetime',
+         ],
+         'ORDER'       => ['TABLE_NAME']
+      ];
+
+      if ($exclude_plugins) {
+         $query['WHERE'][] = ['NOT' => ['information_schema.tables.table_name' => ['LIKE', 'glpi\_plugin\_%']]];
+      }
+
+      $iterator = $this->request($query);
 
       return $iterator;
    }
@@ -1455,55 +1529,6 @@ class DBmysql {
    }
 
    /**
-    * Check if timezone data is accessible and available in database.
-    *
-    * @param string $msg  Variable that would contain the reason of data unavailability.
-    *
-    * @return boolean
-    *
-    * @since 9.5.0
-    */
-   public function areTimezonesAvailable(string &$msg = '') {
-      global $GLPI_CACHE;
-
-      if ($GLPI_CACHE->has('are_timezones_available')) {
-         return $GLPI_CACHE->get('are_timezones_available');
-      }
-      $GLPI_CACHE->set('are_timezones_available', false, DAY_TIMESTAMP);
-
-      $mysql_db_res = $this->request('SHOW DATABASES LIKE ' . $this->quoteValue('mysql'));
-      if ($mysql_db_res->count() === 0) {
-         $msg = __('Access to timezone database (mysql) is not allowed.');
-         return false;
-      }
-
-      $tz_table_res = $this->request(
-         'SHOW TABLES FROM '
-         . $this->quoteName('mysql')
-         . ' LIKE '
-         . $this->quoteValue('time_zone_name')
-      );
-      if ($tz_table_res->count() === 0) {
-         $msg = __('Access to timezone table (mysql.time_zone_name) is not allowed.');
-         return false;
-      }
-
-      $criteria = [
-         'COUNT'  => 'cpt',
-         'FROM'   => 'mysql.time_zone_name',
-      ];
-      $iterator = $this->request($criteria);
-      $result = $iterator->current();
-      if ($result['cpt'] == 0) {
-         $msg = __('Timezones seems not loaded, see https://glpi-install.readthedocs.io/en/latest/timezones.html.');
-         return false;
-      }
-
-      $GLPI_CACHE->set('are_timezones_available', true);
-      return true;
-   }
-
-   /**
     * Defines timezone to use.
     *
     * @param string $timezone
@@ -1512,7 +1537,7 @@ class DBmysql {
     */
    public function setTimezone($timezone) {
       //setup timezone
-      if ($this->areTimezonesAvailable()) {
+      if ($this->use_timezones) {
          date_default_timezone_set($timezone);
          $this->dbh->query("SET SESSION time_zone = '$timezone'");
          $_SESSION['glpi_currenttime'] = date("Y-m-d H:i:s");
@@ -1528,6 +1553,10 @@ class DBmysql {
     * @since 9.5.0
     */
    public function getTimezones() {
+      if (!$this->use_timezones) {
+         return [];
+      }
+
       $list = []; //default $tz is empty
 
       $from_php = \DateTimeZone::listIdentifiers();
@@ -1545,28 +1574,6 @@ class DBmysql {
       }
 
       return $list;
-   }
-
-   /**
-    * Returns count of tables that were not migrated to be compatible with timezones usage.
-    *
-    * @return number
-    *
-    * @since 9.5.0
-    */
-   public function notTzMigrated() {
-       global $DB;
-
-       $result = $DB->request([
-           'COUNT'       => 'cpt',
-           'FROM'        => 'information_schema.columns',
-           'WHERE'       => [
-              'information_schema.columns.table_schema' => $DB->dbdefault,
-              'information_schema.columns.table_name'   => ['LIKE', 'glpi\_%'],
-              'information_schema.columns.data_type'    => ['datetime']
-           ]
-       ])->current();
-       return (int)$result['cpt'];
    }
 
    /**
@@ -1745,5 +1752,84 @@ class DBmysql {
       if (!$stmt->execute()) {
          trigger_error($stmt->error, E_USER_ERROR);
       }
+   }
+
+   /**
+    * Check for deprecated table options during ALTER/CREATE TABLE queries.
+    *
+    * @param string $query
+    *
+    * @return void
+    */
+   private function checkForDeprecatedTableOptions(string $query): void {
+      if (preg_match('/(ALTER|CREATE)\s+TABLE\s+/', $query) !== 1) {
+         return;
+      }
+
+      // Wrong UTF8 charset/collation
+      $matches = [];
+      if ($this->use_utf8mb4 && preg_match('/(?<invalid>(utf8(_[^\';\s]+)?))([\';\s]|$)/', $query, $matches)) {
+         trigger_error(
+            sprintf(
+               'Usage of "%s" charset/collation detected, should be "%s"',
+               $matches['invalid'],
+               str_replace('utf8', 'utf8mb4', $matches['invalid'])
+            ),
+            E_USER_WARNING
+         );
+      } else if (!$this->use_utf8mb4 && preg_match('/(?<invalid>(utf8mb4(_[^\';\s]+)?))([\';\s]|$)/', $query, $matches)) {
+         trigger_error(
+            sprintf(
+               'Usage of "%s" charset/collation detected, should be "%s"',
+               $matches['invalid'],
+               str_replace('utf8mb4', 'utf8', $matches['invalid'])
+            ),
+            E_USER_WARNING
+         );
+      }
+
+      // Usage of MyISAM
+      $matches = [];
+      if (!$this->allow_myisam && preg_match('/[)\s]engine\s*=\s*\'?myisam([\';\s]|$)/i', $query, $matches)) {
+         trigger_error('Usage of "MyISAM" engine is discouraged, please use "InnoDB" engine.', E_USER_WARNING);
+      }
+
+      // Usage of datetime
+      $matches = [];
+      if (!$this->allow_datetime && preg_match('/ datetime /i', $query, $matches)) {
+         trigger_error('Usage of "DATETIME" fields is discouraged, please use "TIMESTAMP" fields instead.', E_USER_WARNING);
+      }
+   }
+
+   /**
+    * Return configuration boolean properties computed using current state of tables.
+    *
+    * @return array
+    */
+   public function getComputedConfigBooleanFlags(): array {
+      $config_flags = [];
+
+      if ($this->getTzIncompatibleTables(true)->count() === 0) {
+         // Disallow datetime if there is no core table still using this field type.
+         $config_flags[DBConnection::PROPERTY_ALLOW_DATETIME] = false;
+
+         $timezones_requirement = new DbTimezones($this);
+         if ($timezones_requirement->isValidated()) {
+            // Activate timezone usage if timezones are available and all tables are already migrated.
+            $config_flags[DBConnection::PROPERTY_USE_TIMEZONES] = true;
+         }
+      }
+
+      if ($this->getNonUtf8mb4Tables(true)->count() === 0) {
+         // Use utf8mb4 charset for update process if there all core table are using this charset.
+         $config_flags[DBConnection::PROPERTY_USE_UTF8MB4] = true;
+      }
+
+      if ($this->getMyIsamTables(true)->count() === 0) {
+         // Disallow MyISAM if there is no core table still using this engine.
+         $config_flags[DBConnection::PROPERTY_ALLOW_MYISAM] = false;
+      }
+
+      return $config_flags;
    }
 }

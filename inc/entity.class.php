@@ -84,7 +84,8 @@ class Entity extends CommonTreeDropdown {
          // Inventory
          'entities_id_software', 'level', 'name',
          'completename', 'entities_id',
-         'ancestors_cache', 'sons_cache', 'comment'
+         'ancestors_cache', 'sons_cache', 'comment', 'transfers_id',
+         'agent_base_url'
       ],
       // Inventory
       'infocom' => [
@@ -3367,7 +3368,7 @@ class Entity extends CommonTreeDropdown {
    }
 
    static function getIcon() {
-      return "fas fa-layer-group";
+      return "ti ti-stack";
    }
 
    /**

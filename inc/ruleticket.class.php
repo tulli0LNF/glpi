@@ -239,7 +239,7 @@ class RuleTicket extends Rule {
                         $solution_content = $template->getRenderedContent($parent);
 
                         // Sanitize generated HTML before adding it in DB
-                        $solution_content = Sanitizer::sanitize($solution_content, true);
+                        $solution_content = Sanitizer::sanitize($solution_content);
 
                         $solution = new ITILSolution();
                         $solution->add([
@@ -380,7 +380,7 @@ class RuleTicket extends Rule {
                   }
                   break;
 
-               case 'regex_result';
+               case 'regex_result':
                   if ($action->fields["field"] == "_affect_itilcategory_by_code") {
                      if (isset($this->regex_results[0])) {
                         $regexvalue = RuleAction::getRegexResultById($action->fields["value"],
